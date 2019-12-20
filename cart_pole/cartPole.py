@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import gym
 import random, os
 import numpy as np
@@ -6,11 +8,11 @@ from tflearn.layers.core import input_data, dropout, fully_connected
 from tflearn.layers.estimator import regression
 from statistics import median, mean
 from collections import Counter
-import scipy
+# import scipy
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
-example_folderPath = 'D:\\mine\\Work\\OpenAI\\cart_pole'
+example_folderPath = 'D:\mine\Work\OpenAI\openai-gym_examples\cart_pole'
 
 ## Learing rate for training the model
 LR = 1e-3
@@ -148,7 +150,6 @@ def train_model(training_data, model=False):
     """
     
     X = np.array([i[0] for i in training_data]).reshape(-1,len(training_data[0][0]),1)
-    print(X)
     y = [i[1] for i in training_data]
     if not model:   # if we don't have a pre-trained model, create a new one.
         model = neural_network_model(input_size = len(X[0]))    # Takes number of the training examples
@@ -165,36 +166,41 @@ def train_model(training_data, model=False):
     model.fit({'input': X}, {'targets': y}, n_epoch=3, snapshot_step=500, show_metric=True, run_id='cart_pole_learning')
     return model
 
-training_data = generate_training_data()
-model = train_model(training_data)
+def test_model(training_data, model):
+    scores = []
+    choices = []
+    for each_game in range(150):
+        score = 0
+        episode_memory = []
+        prev_obs = []
+        env.reset()
+        for _ in range(goal_steps):
+            # env.render()
 
+            if len(prev_obs)==0:
+                action = random.randrange(0,2)
+            else:
+                action = np.argmax(model.predict(prev_obs.reshape(-1,len(prev_obs),1))[0])
 
-scores = []
-choices = []
-for each_game in range(150):
-    score = 0
-    episode_memory = []
-    prev_obs = []
-    env.reset()
-    for _ in range(goal_steps):
-        # env.render()
+            choices.append(action)
+                    
+            new_observation, reward, done, info = env.step(action)
+            prev_obs = new_observation
+            episode_memory.append([new_observation, action])
+            score+=reward
+            if done: break
 
-        if len(prev_obs)==0:
-            action = random.randrange(0,2)
-        else:
-            action = np.argmax(model.predict(prev_obs.reshape(-1,len(prev_obs),1))[0])
+        scores.append(score)
+    # print(score_threshold)
+    return scores, choices
 
-        choices.append(action)
-                
-        new_observation, reward, done, info = env.step(action)
-        prev_obs = new_observation
-        episode_memory.append([new_observation, action])
-        score+=reward
-        if done: break
+def main():
+    training_data = generate_training_data()
+    model = train_model(training_data)
+    scores, choices = test_model(training_data, model)
+    print('Average Score:',sum(scores)/len(scores))
+    print('choice 1:{}  choice 0:{}'.format(choices.count(1)/len(choices),choices.count(0)/len(choices)))
+    model.save(example_folderPath + "\\models\\" + str(sum(scores)/len(scores)) + ".model")
 
-    scores.append(score)
-
-print('Average Score:',sum(scores)/len(scores))
-print('choice 1:{}  choice 0:{}'.format(choices.count(1)/len(choices),choices.count(0)/len(choices)))
-print(score_threshold)
-model.save("cart_pole\\models\\" + str(sum(scores)/len(scores)))
+if __name__ == '__main__':
+    main()
